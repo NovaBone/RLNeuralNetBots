@@ -123,7 +123,7 @@ class NeuralStructure:
         for i in range(len(neuralstructure)-1):
             for j in range(neuralstructure[i+1]):
                 neuralbiasmatrix[i].append(NeuralBot.outputtofloat(random()))
-        
+
 
     def process(self,matrix):
         pass
