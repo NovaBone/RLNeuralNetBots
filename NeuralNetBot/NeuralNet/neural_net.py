@@ -1,4 +1,5 @@
 import math
+import random
 
 from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.utils.structures.game_data_struct import GameTickPacket
@@ -110,18 +111,19 @@ class NeuralBot(BaseAgent):
 
 class NeuralStructure:
     def __init__(self):
+        pi=math.pi
         neuralstructure = [126, 32, 32, 16, 16, 16, 8]
         neuralweightmatrix = []
         for i in range(len(neuralstructure)-1):
             for j in range(neuralstructure[i]):
                 neuralweightmatrix[i].append()
                 for k in range(neuralstructure[i+1]):
-                    neuralweightmatrix[i][j].append(outputtofloat(random()))
+                    neuralweightmatrix[i][j].append(NeuralBot.outputtofloat(random()))
         neuralbiasmatrix = []
         for i in range(len(neuralstructure)-1):
             for j in range(neuralstructure[i+1]):
-                neuralbiasmatrix[i].append(outputtoint(random()))
-
+                neuralbiasmatrix[i].append(NeuralBot.outputtofloat(random()))
+        
 
     def process(self,matrix):
         pass
@@ -179,7 +181,7 @@ class MatrixFunctionsPlus:
     def sigmoid(self,num,modifier=1):return modifier * (1/(1+exp(-1*num)))
 '''
 
-    '''
+'''
     Fitness Functions:
     1. Distance to ball
     2. Distance to ball x Time Taken
@@ -190,4 +192,6 @@ class MatrixFunctionsPlus:
     7. Human Player No-Touch x Time Successful
     8. Demolitions on Stationary x Time Taken
     9. Demolitions on Player x Time Taken
-    '''
+    10. Goals > OwnGoals [Offensive Tendencies]
+    11. OwnGoals > Goals [Defensive Tendencies]
+'''
