@@ -1,6 +1,4 @@
 class StatesHandler:
-    def __init__(self):
-        pass
 
     def choosestate(self, ball, me, others):
         # Example list of state functions
@@ -21,7 +19,7 @@ class StatesHandler:
         }
 
     def execute(self, state):
-        if x :'''state incomplete'''
+        if '''state incomplete''':
             self.stateList[state]
         else:
             return {
@@ -38,9 +36,6 @@ class StatesHandler:
 
 
 class States:
-
-    def __init__(self):
-        pass
 
     def atba(self,ball,me,others):
         pass
