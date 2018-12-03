@@ -26,7 +26,6 @@ class NeuralBot(BaseAgent):
         '''
         return self.controller_state
 
-    
     def preprocess(self,game):
         car = game.game_cars[self.index]
         mylocationdata = {"x":car.physics.location.x, "y":car.physics.location.y, "z":car.physics.location.z}
@@ -108,6 +107,7 @@ class NeuralBot(BaseAgent):
             return False
         else:
             return False
+
 
 class NeuralStructure:
     def __init__(self):
