@@ -10,9 +10,12 @@ class NeuralBot(BaseAgent):
     
     def initialize_agent(self):
         self.controller_state = SimpleControllerState()
+        self.myusername = ""
+        self.nodes = []
 
-    def get_output(self, game: GameTickPacket) -> SimpleControllerState:
-        self.preprocess(game)
+    def get_output(self, game: GameTickPacket, body: BaseAgent.get_rigid_body_tick()) -> SimpleControllerState:
+        gamedata = self.preprocess(game, body)
+        createnodes(gamedata)
         '''
         Netoutput[] has 8 values:
         self.controllerstate.throttle = outputtofloat(netoutput[0])
@@ -26,80 +29,109 @@ class NeuralBot(BaseAgent):
         '''
         return self.controller_state
 
-    def preprocess(self,game):
+    def preprocess(self, game, body):
         car = game.game_cars[self.index]
-        mylocationdata = {"x":car.physics.location.x, "y":car.physics.location.y, "z":car.physics.location.z}
-        myvelocitydata = {"x":car.physics.velocity.x, "y":car.physics.velocity.y, "z":car.physics.velocity.z}
-        myrotationdata = {"x":car.physics.rotation.pitch, "y":car.physics.rotation.yaw, "z":car.physics.rotation.roll}
-        myrvelocitydata = {"x":car.physics.angular_velocity.x, "y":car.physics.angular_velocity.y, "z":car.physics.angular_velocity.z}
+        mycar = body.players[self.index]
+        wheelcontact = False
+        if car.has_wheel_contact:
+            wheelcontact = True
+        doublejumped = True
+        if not car.double_jumped:
+            doublejumped = False
+        mylocationdata = {"x": mycar.state.location.x, "y": mycar.state.location.y, "z": mycar.state.location.z}
+        myvelocitydata = {"x": mycar.state.velocity.x, "y": mycar.state.velocity.y, "z": mycar.state.velocity.z}
+        myrotation = UtilFunctions.quaterniontoeuler(mycar.state.rotation)
+        myrotationdata = {"x": myrotation['pitch'], "y": myrotation['yaw'],
+                          "z": myrotation['roll']}
+        myrvelocitydata = {"x": mycar.state.angular_velocity.x, "y": mycar.state.angular_velocity.y,
+                           "z": mycar.state.angular_velocity.z}
         myboost = car.boost
+        mystats = {'locationdata': mylocationdata, 'velocitydata': myvelocitydata, 'rotationdata': myrotationdata,
+                   'rvelocitydata': myrvelocitydata, 'boost': myboost, 'doublejumped': doublejumped,
+                   'wheelcontact': wheelcontact}
 
-        ball = game.game_ball.physics
-        balllocationdata = {"x":ball.location.x, "y":ball.location.y, "z":ball.location.z}
-        ballvelocitydata = {"x":ball.velocity.x, "y":ball.velocity.y, "z":ball.velocity.z}
-        ballrotationdata = {"x":ball.rotation.pitch, "y":ball.rotation.yaw, "z":ball.rotation.roll}
-        ballrvelocitydata = {"x":ball.angular_velocity.x, "y":ball.angular_velocity.y, "z":ball.angular_velocity.z}
+        ball = body.ball
+        balllocationdata = {"x": ball.location.x, "y": ball.location.y, "z": ball.location.z}
+        ballvelocitydata = {"x": ball.velocity.x, "y": ball.velocity.y, "z": ball.velocity.z}
+        rotation = UtilFunctions.quaterniontoeuler(ball.rotation)
+        ballrotationdata = {"x": rotation['pitch'], "y": rotation['yaw'], "z": rotation['roll']}
+        ballrvelocitydata = {"x": ball.angular_velocity.x, "y": ball.angular_velocity.y, "z": ball.angular_velocity.z}
+        ballstats = {'location': balllocationdata, 'velocity': ballvelocitydata,
+                     'rotation': ballrotationdata, 'rvelocity': ballrvelocitydata}
 
-        other = []
-        nodes = []
+        otherstats = []
         for i in range(8):
             if i != self.index:
                 car = game.game_cars[i]
-                other.append({"team": car.team,
-                    "locationdata": {"x": car.physics.location.x, "y": car.physics.location.y, "z": car.physics.location.z},
-                    "velocitydata": {"x": car.physics.velocity.x, "y": car.physics.velocity.y, "z": car.physics.velocity.z},
-                    "rotationdata": {"x":car.physics.rotation.pitch, "y": car.physics.rotation.yaw, "z": car.physics.rotation.roll},
-                    "rvelocitydata": {"x":car.physics.angular_velocity.x, "y": car.physics.angular_velocity.y, "z": car.physics.angular_velocity.z},
-                    "boost":0})
-        nodes.append((mylocationdata["x"]+4096.0)/8192.0)
-        nodes.append((mylocationdata["y"]+6500.0)/13000.0)
-        nodes.append(mylocationdata["z"]/2044.0)
-        nodes.append((myvelocitydata["x"]+2300.0)/4600.0)
-        nodes.append((myvelocitydata["y"]+2300.0)/4600.0)
-        nodes.append((myvelocitydata["z"]+2300.0)/4600.0)
-        nodes.append((myrotationdata["x"]+3.5)/15)
-        nodes.append((myrotationdata["y"]+3.5)/15)
-        nodes.append((myrotationdata["z"]+3.5)/15)
-        nodes.append((myrvelocitydata["x"]+5.5)/11)
-        nodes.append((myrvelocitydata["y"]+5.5)/11)
-        nodes.append((myrvelocitydata["z"]+5.5)/11)
-        nodes.append(myboost/100)
+                rigid = body.players[i]
+                wheelcontact = False
+                if car.has_wheel_contact:
+                    wheelcontact = True
+                doublejumped = True
+                if not car.double_jumped:
+                    doublejumped = False
+                teammate = False
+                if car.team == game.game_cars[self.index].team:
+                    teammate = True
+                rotation = UtilFunctions.quaterniontoeuler(rigid.state.rotation)
+                otherstats.append({"teammate": teammate,
+                                   "location": {"x": rigid.state.location.x,
+                                                    "y": rigid.state.location.y,
+                                                    "z": rigid.state.location.z},
+                                   "velocity": {"x": rigid.state.velocity.x,
+                                                    "y": rigid.state.velocity.y,
+                                                    "z": rigid.state.velocity.z},
+                                   "rotation": {"x": rotation['pitch'],
+                                                    "y": rotation['yaw'],
+                                                    "z": rotation['roll']},
+                                   "rvelocity": {"x": rigid.state.angular_velocity.x,
+                                                     "y": rigid.state.angular_velocity.y,
+                                                     "z": rigid.state.angular_velocity.z},
+                                   "boost": 0,
+                                   "doublejumped": doublejumped,
+                                   "wheelcontact": wheelcontact
+                                   })
+        for i in range(len(game.game_cars)):
+            if i == self.index:
+                self.myusername = game.game_cars[i]['name']
+        info = game.game_ball.latest_touch
+        touchinfo = {
+            'player': info.player_name,
+            'time': info.time_seconds
+        }
+        if touchinfo['player'] != self.last_touch['name']:
+            self.last_touch['name'] = touchinfo['player']
+            self.last_touch['time'] = touchinfo['time']
+            self.last_touch['timesince'] = 0.0
+        else:
+            self.last_touch['timesince'] = game.game_info.seconds_elapsed - self.last_touch['time']
+        return {
+            'me': mystats,
+            'ball': ballstats,
+            'others': otherstats,
+            'touchinfo': touchinfo
+        }
 
-        nodes.append((balllocationdata["x"]+4096.0)/8192.0)
-        nodes.append((balllocationdata["y"]+6500.0)/13000.0)
-        nodes.append(balllocationdata["z"]/2044.0)
-        nodes.append((ballvelocitydata["x"]+6000.0)/12000.0)
-        nodes.append((ballvelocitydata["y"]+6000.0)/12000.0)
-        nodes.append((ballvelocitydata["z"]+6000.0)/12000.0)
-        nodes.append((ballrotationdata["x"]+3.5)/14)
-        nodes.append((ballrotationdata["y"]+3.5)/14)
-        nodes.append((ballrotationdata["z"]+3.5)/14)
-        nodes.append((ballrvelocitydata["x"]+6)/12)
-        nodes.append((ballrvelocitydata["y"]+6)/12)
-        nodes.append((ballrvelocitydata["z"]+6)/12)
+    def createnodes(self, gamedata):
+        for i in gamedata:
+            if type(gamedata[i]) is dict:
+                for j in gamedata:
+                    if type(gamedata[i][j]) is dict:
+                        for k in gamedata:
+                            if type(gamedata[i][j][k]) is dict:
+                                for l in gamedata:
+                                    self.nodes.append(gamedata[i][j][k][l])
+                            else:
+                                self.nodes.append(gamedata[i][j][k])
+                    else:
+                        self.nodes.append(gamedata[i][j])
+            else:
+                self.nodes.append(gamedata[i])
 
-        for i in range(7):
-            nodes.append(other[i]["team"])
-            nodes.append(other[i]["boost"])
-            nodes.append((other[i]["locationdata"]["x"]+4096.0)/8192.0)
-            nodes.append((other[i]["locationdata"]["y"]+6500.0)/13000.0)
-            nodes.append(other[i]["locationdata"]["z"]/2044.0)
-            nodes.append((other[i]["velocitydata"]["x"]+2300.0)/4600.0)
-            nodes.append((other[i]["velocitydata"]["y"]+2300.0)/4600.0)
-            nodes.append((other[i]["velocitydata"]["z"]+2300.0)/4600.0)
-            nodes.append((other[i]["rotationdata"]["x"]+3.5)/15)
-            nodes.append((other[i]["rotationdata"]["y"]+3.5)/15)
-            nodes.append((other[i]["rotationdata"]["z"]+3.5)/15)
-            nodes.append((other[i]["rvelocitydata"]["x"]+5.5)/11)
-            nodes.append((other[i]["rvelocitydata"]["y"]+5.5)/11)
-            nodes.append((other[i]["rvelocitydata"]["z"]+5.5)/11)
-
-        nodes.append(game.game_info.game_time_remaining/300)
-        nodes.append(game.game_info.goals/500)
-        nodes.append(game.game_info.ownGoals/500)
-
+    @staticmethod
     def outputtofloat(n):return (n*2)-n
 
+    @staticmethod
     def outputtobool(n):
         if 1 >= n >= 0.5:
             return True
@@ -108,25 +140,16 @@ class NeuralBot(BaseAgent):
         else:
             return False
 
-
-class NeuralStructure:
-    def __init__(self):
-        pi=math.pi
-        neuralstructure = [126, 32, 32, 16, 16, 16, 8]
-        neuralweightmatrix = []
-        for i in range(len(neuralstructure)-1):
-            for j in range(neuralstructure[i]):
-                neuralweightmatrix[i].append()
-                for k in range(neuralstructure[i+1]):
-                    neuralweightmatrix[i][j].append(NeuralBot.outputtofloat(random()))
-        neuralbiasmatrix = []
-        for i in range(len(neuralstructure)-1):
-            for j in range(neuralstructure[i+1]):
-                neuralbiasmatrix[i].append(NeuralBot.outputtofloat(random()))
-
-
-    def process(self,matrix):
-        pass
+    @staticmethod
+    def quaterniontoeuler(q):
+        yaw = math.atan2(2 * (q['x'] * q['y'] + q['z'] * q['w']), 1 - 2 * (pow(q['y'], 2) + pow(q['z'], 2)))
+        pitch = math.asin(2 * (q['x'] * q['z']) - q['w'] * q['y'])
+        roll = math.atan2(2 * (q['x'] * q['w'] + q['y'] * q['z']), 1 - 2 * (pow(q['z'], 2) + pow(q['w'], 2)))
+        return {
+            'x': yaw,
+            'y': pitch,
+            'z': roll
+        }
 
 '''
 class MatrixFunctionsPlus:
